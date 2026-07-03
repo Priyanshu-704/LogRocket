@@ -27,6 +27,16 @@ export class Analyzer {
   private transmitInterval: any = null;
   private reportDebounceTimeout: any = null;
 
+  private handleUnload = (): void => {
+    this.transmit(true);
+  };
+
+  private handleVisibilityChange = (): void => {
+    if (typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+      this.transmit(true);
+    }
+  };
+
   /**
    * Initializes the SDK with configurations.
    */
@@ -68,6 +78,7 @@ export class Analyzer {
       this.isInitialized = true;
     } catch (err: any) {
       this.logger.error('Failed to initialize SDK core', err);
+      throw err;
     }
   }
 
@@ -168,14 +179,26 @@ export class Analyzer {
   public addIssue(issue: Issue): void {
     if (!this.isInitialized || !this.isSampled) return;
 
-    // Generate unique ID if not already generated
+    // Generate deterministic fingerprint ID if not already generated
     if (!issue.id) {
-      issue.id = Math.random().toString(36).substring(2, 9);
+      const loc = issue.location || {};
+      const key = `${issue.category}-${issue.type}-${issue.message}-${loc.fileName || ''}-${loc.line || 0}-${loc.selector || ''}`;
+      let hash = 0;
+      for (let i = 0; i < key.length; i++) {
+        hash = (hash << 5) - hash + key.charCodeAt(i);
+        hash |= 0;
+      }
+      issue.id = `fp_${Math.abs(hash).toString(36)}`;
     }
 
     // Deduplicate: check if this issue ID is already in the current queue
     if (this.issues.some(item => item.id === issue.id)) {
       return;
+    }
+
+    // Intercept and send directly to local IDE loopback port in development mode
+    if (this.config.environment === 'development') {
+      this.transmitLocalDiagnostic(issue);
     }
 
     if (this.issues.length >= MAX_ISSUES_QUEUE) {
@@ -209,6 +232,13 @@ export class Analyzer {
       this.transmit(true);
     }
 
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('beforeunload', this.handleUnload);
+    }
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+    }
+
     if (this.registry) {
       this.registry.clear();
     }
@@ -236,17 +266,11 @@ export class Analyzer {
     this.transmitInterval = setInterval(() => this.transmit(), 10000);
 
     // 2. Setup unload/visibility-change triggers to ensure zero data loss on page exit
-    const handleUnload = () => {
-      this.transmit(true);
-    };
-
-    window.addEventListener('beforeunload', handleUnload);
+    window.addEventListener('beforeunload', this.handleUnload);
     
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') {
-        this.transmit(true);
-      }
-    });
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', this.handleVisibilityChange);
+    }
   }
 
   private scheduleDebouncedTransmit(): void {
@@ -278,15 +302,22 @@ export class Analyzer {
 
     safeExecute(() => {
       const payload = JSON.stringify(report);
+      let endpointUrl = this.config.endpoint!;
+      if (this.config.apiKey) {
+        if (endpointUrl.includes('?')) {
+          endpointUrl += `&apiKey=${encodeURIComponent(this.config.apiKey)}`;
+        } else {
+          endpointUrl += `?apiKey=${encodeURIComponent(this.config.apiKey)}`;
+        }
+      }
 
       if (useBeacon && typeof navigator !== 'undefined' && navigator.sendBeacon) {
-        const success = navigator.sendBeacon(this.config.endpoint!, new Blob([payload], { type: 'application/json' }));
+        const success = navigator.sendBeacon(endpointUrl, new Blob([payload], { type: 'application/json' }));
         if (!success) {
-          // Fallback if beacon failed
-          this.fallbackFetch(payload);
+          this.fallbackFetch(payload, issuesSent, eventsSent);
         }
       } else {
-        this.fallbackFetch(payload);
+        this.fallbackFetch(payload, issuesSent, eventsSent);
       }
     }, undefined, (err) => {
       this.logger.error('Failed to transmit report payload', err);
@@ -296,18 +327,59 @@ export class Analyzer {
     });
   }
 
-  private fallbackFetch(payload: string): void {
+  private fallbackFetch(payload: string, issuesSent: any[], eventsSent: any[]): void {
     if (typeof fetch === 'undefined') return;
 
-    fetch(this.config.endpoint!, {
+    let endpointUrl = this.config.endpoint!;
+    if (this.config.apiKey) {
+      if (endpointUrl.includes('?')) {
+        endpointUrl += `&apiKey=${encodeURIComponent(this.config.apiKey)}`;
+      } else {
+        endpointUrl += `?apiKey=${encodeURIComponent(this.config.apiKey)}`;
+      }
+    }
+
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json'
+    };
+    if (this.config.apiKey) {
+      headers['x-api-key'] = this.config.apiKey;
+    }
+
+    fetch(endpointUrl, {
+      method: 'POST',
+      headers,
+      body: payload,
+      keepalive: true // Hint to browser to keep request alive if page unloads
+    })
+      .then(res => {
+        if (!res.ok) {
+          this.logger.warn(`Ingestion server rejected payload with status ${res.status}. Restoring queues.`);
+          this.issues = [...issuesSent, ...this.issues].slice(0, MAX_ISSUES_QUEUE);
+          this.events = [...eventsSent, ...this.events].slice(0, MAX_EVENTS_QUEUE);
+        }
+      })
+      .catch(err => {
+        this.logger.error('Fetch reporting fallback failed. Restoring queues.', err);
+        this.issues = [...issuesSent, ...this.issues].slice(0, MAX_ISSUES_QUEUE);
+        this.events = [...eventsSent, ...this.events].slice(0, MAX_EVENTS_QUEUE);
+      });
+  }
+
+  private transmitLocalDiagnostic(issue: Issue): void {
+    if (typeof fetch === 'undefined') return;
+
+    fetch('http://localhost:3003/local-diagnostic', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
-      body: payload,
-      keepalive: true // Hint to browser to keep request alive if page unloads
+      body: JSON.stringify(issue),
+      mode: 'cors',
+      credentials: 'omit'
     }).catch(err => {
-      this.logger.error('Fetch reporting fallback failed', err);
+      // Quietly ignore if local VS Code extension/LSP is not running
+      this.logger.debug('Failed to transmit local development diagnostic to IDE extension hook', err);
     });
   }
 }

@@ -19,6 +19,7 @@ export default function ProjectsPage() {
   const [showModal, setShowModal] = useState(false);
   const [newProjectName, setNewProjectName] = useState('');
   const [copiedSnippetId, setCopiedSnippetId] = useState<string | null>(null);
+  const [createdProjectData, setCreatedProjectData] = useState<{ project: Project; apiKey: string } | null>(null);
 
   useEffect(() => {
     if (!token) {
@@ -69,7 +70,10 @@ export default function ProjectsPage() {
         };
         setProjects([...projects, mockNew]);
         setNewProjectName('');
-        setShowModal(false);
+        setCreatedProjectData({
+          project: mockNew,
+          apiKey: 'key_demo_secret_access_token_123456'
+        });
         return;
       }
 
@@ -86,7 +90,10 @@ export default function ProjectsPage() {
       if (response.ok && data.status === 'success') {
         setProjects([...projects, data.data.project]);
         setNewProjectName('');
-        setShowModal(false);
+        setCreatedProjectData({
+          project: data.data.project,
+          apiKey: data.data.apiKey
+        });
       }
     } catch (err) {
       console.error('Failed to create project', err);
@@ -97,6 +104,7 @@ export default function ProjectsPage() {
     const snippet = `<script 
   src="${apiBaseUrl}/sdk/analyzer.js" 
   data-project-id="${projId}" 
+  data-api-key="YOUR_API_KEY_FROM_SETTINGS"
   data-env="production">
 </script>`;
     
@@ -191,7 +199,7 @@ export default function ProjectsPage() {
                   <div className="flex items-center gap-2 overflow-hidden">
                     <Terminal className="w-4 h-4 text-emerald-400 shrink-0" />
                     <code className="text-xs font-mono text-dark-300 truncate select-all">
-                      {`<script src="${apiBaseUrl}/sdk/analyzer.js" data-project-id="${proj._id}"></script>`}
+                      {`<script src="${apiBaseUrl}/sdk/analyzer.js" data-project-id="${proj._id}" data-api-key="YOUR_API_KEY_FROM_SETTINGS"></script>`}
                     </code>
                   </div>
                   <button
@@ -216,35 +224,111 @@ export default function ProjectsPage() {
       {showModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-6 z-50">
           <div className="w-full max-w-md bg-dark-900 border border-dark-800 rounded-2xl p-6 shadow-2xl">
-            <h3 className="text-lg font-bold text-white mb-2">Create Workspace</h3>
-            <p className="text-sm text-dark-400 mb-6">Enter a title for your site or app workspace.</p>
-            
-            <form onSubmit={handleCreateProject} className="space-y-4">
-              <input
-                type="text"
-                value={newProjectName}
-                onChange={(e) => setNewProjectName(e.target.value)}
-                placeholder="e.g. Acme Web Store"
-                className="w-full px-4 py-3 bg-dark-950 border border-dark-800 focus:border-emerald-500 rounded-xl text-white outline-none placeholder-dark-500"
-                required
-                autoFocus
-              />
-              <div className="flex justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 text-dark-300 hover:bg-dark-800 rounded-lg text-sm transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-dark-950 font-bold rounded-lg text-sm transition-colors"
-                >
-                  Save
-                </button>
+            {createdProjectData ? (
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-lg font-bold text-emerald-400 mb-1 font-sans">Workspace Created!</h3>
+                  <p className="text-xs text-dark-400">Save your API key and code snippet. You will not be able to view this raw API key again.</p>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-dark-400 mb-1.5">Active SDK API Key</label>
+                    <div className="flex bg-dark-950 border border-dark-800 rounded-xl overflow-hidden">
+                      <input
+                        type="text"
+                        value={createdProjectData.apiKey}
+                        readOnly
+                        className="flex-1 px-3 py-2.5 bg-transparent text-xs font-mono text-dark-300 outline-none select-all"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard.writeText(createdProjectData.apiKey);
+                          setCopiedSnippetId('modal_apikey');
+                          setTimeout(() => setCopiedSnippetId(null), 2000);
+                        }}
+                        className="px-3 py-2.5 bg-dark-900/50 hover:bg-dark-850 hover:text-emerald-400 border-l border-dark-800 text-dark-400 text-xs font-bold transition-all"
+                      >
+                        {copiedSnippetId === 'modal_apikey' ? 'Copied' : 'Copy'}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-dark-400 mb-1.5">Integration HTML Snippet</label>
+                    <div className="flex bg-dark-950 border border-dark-800 rounded-xl overflow-hidden">
+                      <input
+                        type="text"
+                        value={`<script src="${apiBaseUrl}/sdk/analyzer.js" data-project-id="${createdProjectData.project._id}" data-api-key="${createdProjectData.apiKey}"></script>`}
+                        readOnly
+                        className="flex-1 px-3 py-2.5 bg-transparent text-xs font-mono text-dark-300 outline-none select-all"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const snip = `<script src="${apiBaseUrl}/sdk/analyzer.js" data-project-id="${createdProjectData.project._id}" data-api-key="${createdProjectData.apiKey}"></script>`;
+                          navigator.clipboard.writeText(snip);
+                          setCopiedSnippetId('modal_snippet');
+                          setTimeout(() => setCopiedSnippetId(null), 2000);
+                        }}
+                        className="px-3 py-2.5 bg-dark-900/50 hover:bg-dark-850 hover:text-emerald-400 border-l border-dark-800 text-dark-400 text-xs font-bold transition-all"
+                      >
+                        {copiedSnippetId === 'modal_snippet' ? 'Copied' : 'Copy'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setCreatedProjectData(null);
+                      setShowModal(false);
+                    }}
+                    className="px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-dark-950 font-bold rounded-xl text-xs transition-colors"
+                  >
+                    Done
+                  </button>
+                </div>
               </div>
-            </form>
+            ) : (
+              <div>
+                <h3 className="text-lg font-bold text-white mb-2">Create Workspace</h3>
+                <p className="text-sm text-dark-400 mb-6">Enter a title for your site or app workspace.</p>
+                
+                <form onSubmit={handleCreateProject} className="space-y-4">
+                  <input
+                    type="text"
+                    value={newProjectName}
+                    onChange={(e) => setNewProjectName(e.target.value)}
+                    placeholder="e.g. Acme Web Store"
+                    className="w-full px-4 py-3 bg-dark-950 border border-dark-800 focus:border-emerald-500 rounded-xl text-white outline-none placeholder-dark-500"
+                    required
+                    autoFocus
+                  />
+                  <div className="flex justify-end gap-3 pt-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNewProjectName('');
+                        setShowModal(false);
+                      }}
+                      className="px-4 py-2 text-dark-300 hover:bg-dark-800 rounded-lg text-sm transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 text-dark-950 font-bold rounded-lg text-sm transition-colors"
+                    >
+                      Save
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
           </div>
         </div>
       )}

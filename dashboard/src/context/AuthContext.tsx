@@ -46,34 +46,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = async (email: string, password: string): Promise<boolean> => {
     setIsLoading(true);
+    let response: any;
     try {
-      const response = await fetch(`${apiBaseUrl}/api/auth/login`, {
+      response = await fetch(`${apiBaseUrl}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
       });
-
-      const data = await response.json();
-      if (response.ok && data.status === 'success') {
-        const userPayload = data.data.user;
-        const tokenPayload = data.token;
-
-        setToken(tokenPayload);
-        setUser(userPayload);
-        setIsDemoMode(false);
-
-        localStorage.setItem('analyzer_token', tokenPayload);
-        localStorage.setItem('analyzer_user', JSON.stringify(userPayload));
-        localStorage.setItem('analyzer_demo', 'false');
-        
-        setIsLoading(false);
-        return true;
-      }
-      throw new Error(data.message || 'Login failed.');
-    } catch (err: any) {
-      console.warn('[Auth] Backend unreachable or login failed. Activating local demo mode fallback.', err);
+    } catch (networkErr: any) {
+      console.warn('[Auth] Backend unreachable. Activating local demo mode fallback.', networkErr);
       
-      // Standalone Demo Mode Fallback
       const demoUser: User = {
         id: 'demo_user_123',
         name: 'Guest Developer',
@@ -93,17 +75,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(false);
       return true;
     }
-  };
 
-  const register = async (name: string, email: string, password: string): Promise<boolean> => {
-    setIsLoading(true);
     try {
-      const response = await fetch(`${apiBaseUrl}/api/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password })
-      });
-
       const data = await response.json();
       if (response.ok && data.status === 'success') {
         const userPayload = data.data.user;
@@ -116,13 +89,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem('analyzer_token', tokenPayload);
         localStorage.setItem('analyzer_user', JSON.stringify(userPayload));
         localStorage.setItem('analyzer_demo', 'false');
-
+        
         setIsLoading(false);
         return true;
       }
-      throw new Error(data.message || 'Registration failed.');
-    } catch (err) {
-      console.warn('[Auth] Backend offline. Triggering demo registration.');
+      alert(data.message || 'Login failed.');
+      setIsLoading(false);
+      return false;
+    } catch (err: any) {
+      alert('Error parsing server response.');
+      setIsLoading(false);
+      return false;
+    }
+  };
+
+  const register = async (name: string, email: string, password: string): Promise<boolean> => {
+    setIsLoading(true);
+    let response: any;
+    try {
+      response = await fetch(`${apiBaseUrl}/api/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password })
+      });
+    } catch (networkErr: any) {
+      console.warn('[Auth] Backend offline. Triggering demo registration.', networkErr);
       
       const demoUser: User = {
         id: 'demo_user_123',
@@ -142,6 +133,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setIsLoading(false);
       return true;
+    }
+
+    try {
+      const data = await response.json();
+      if (response.ok && data.status === 'success') {
+        const userPayload = data.data.user;
+        const tokenPayload = data.token;
+
+        setToken(tokenPayload);
+        setUser(userPayload);
+        setIsDemoMode(false);
+
+        localStorage.setItem('analyzer_token', tokenPayload);
+        localStorage.setItem('analyzer_user', JSON.stringify(userPayload));
+        localStorage.setItem('analyzer_demo', 'false');
+
+        setIsLoading(false);
+        return true;
+      }
+      alert(data.message || 'Registration failed.');
+      setIsLoading(false);
+      return false;
+    } catch (err: any) {
+      alert('Error parsing server response.');
+      setIsLoading(false);
+      return false;
     }
   };
 

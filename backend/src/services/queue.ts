@@ -7,7 +7,7 @@ import { emitToProject } from './socket';
 import { dispatchWebhook } from './webhook';
 import config from '../config';
 
-let useRedis = true;
+let useRedis = process.env.NODE_ENV !== 'test';
 let bullQueue: BullQueue | null = null;
 let bullWorker: BullWorker | null = null;
 
@@ -19,50 +19,120 @@ const redisOptions = {
   connectTimeout: 2000
 };
 
-// Resilient memory-fallback queue structure
+import fs from 'fs';
+import path from 'path';
+
+const QUEUE_FILE = path.join(process.cwd(), 'memory_queue.json');
+
+// Resilient file-backed memory fallback queue structure
 class MemoryQueue {
+  private jobs: Array<{ name: string; data: any }> = [];
+  private isProcessing = false;
+
+  constructor() {
+    this.loadJobs();
+    // Start worker loop asynchronously after initialization
+    setTimeout(() => this.startWorker(), 100);
+  }
+
+  private loadJobs() {
+    try {
+      if (fs.existsSync(QUEUE_FILE)) {
+        const raw = fs.readFileSync(QUEUE_FILE, 'utf8');
+        this.jobs = JSON.parse(raw);
+        console.log(`[MemoryQueue] Loaded ${this.jobs.length} persisted fallback jobs from disk.`);
+      }
+    } catch (err: any) {
+      console.warn(`[MemoryQueue] Failed to load persisted fallback jobs: ${err.message}`);
+    }
+  }
+
+  private saveJobs() {
+    try {
+      fs.writeFileSync(QUEUE_FILE, JSON.stringify(this.jobs, null, 2), 'utf8');
+    } catch (err: any) {
+      console.error(`[MemoryQueue] Failed to persist fallback jobs: ${err.message}`);
+    }
+  }
+
   async add(name: string, data: any): Promise<void> {
-    // Process asynchronously outside callstack
-    setTimeout(() => {
-      processJob(name, data).catch(err => {
-        console.error(`[MemoryQueue] Worker Job failed: ${name}`, err);
-      });
-    }, 10);
+    this.jobs.push({ name, data });
+    this.saveJobs();
+    this.startWorker();
+  }
+
+  private startWorker() {
+    if (this.isProcessing) return;
+    this.isProcessing = true;
+    this.processNext();
+  }
+
+  private async processNext() {
+    if (this.jobs.length === 0) {
+      this.isProcessing = false;
+      return;
+    }
+
+    const job = this.jobs[0];
+    try {
+      await processJob(job.name, job.data);
+    } catch (err: any) {
+      console.error(`[MemoryQueue] Persisted Job failed: ${job.name}`, err);
+    }
+
+    this.jobs.shift();
+    this.saveJobs();
+    
+    // Process next job
+    setTimeout(() => this.processNext(), 50);
   }
 }
 
 const memoryQueueInstance = new MemoryQueue();
 
-// Try establishing Redis connectivity
-try {
-  const connection = new IORedis({
-    ...redisOptions,
-    retryStrategy(times) {
-      if (times > 2) {
-        useRedis = false;
-        console.warn('[Queue] Redis connection failed twice. Dropping back to MemoryQueue fallback.');
-        return null; // stop retrying
+if (useRedis) {
+  // Try establishing Redis connectivity
+  try {
+    const connection = new IORedis({
+      ...redisOptions,
+      retryStrategy(times) {
+        if (times > 2) {
+          useRedis = false;
+          console.warn('[Queue] Redis connection failed twice. Dropping back to MemoryQueue fallback.');
+          return null; // stop retrying
+        }
+        return 1000;
       }
-      return 1000;
+    });
+
+    connection.on('error', (err) => {
+      if (useRedis) {
+        console.warn('[Queue] Redis connection error. Falling back to MemoryQueue.', err.message);
+        useRedis = false;
+        try { connection.disconnect(); } catch (e) {}
+        if (bullQueue) {
+          bullQueue.close().catch(() => {});
+          bullQueue = null;
+        }
+        if (bullWorker) {
+          bullWorker.close().catch(() => {});
+          bullWorker = null;
+        }
+      }
+    });
+
+    if (useRedis) {
+      bullQueue = new BullQueue('report-analysis', { connection: connection as any });
+      bullWorker = new BullWorker('report-analysis', async (job) => {
+        await processJob(job.name, job.data);
+      }, { connection: connection as any });
+
+      console.log('[Queue] BullMQ background queue initialized successfully.');
     }
-  });
-
-  connection.on('error', (err) => {
-    // Suppress unhandled Redis connectivity crashes
+  } catch (err) {
     useRedis = false;
-  });
-
-  if (useRedis) {
-    bullQueue = new BullQueue('report-analysis', { connection });
-    bullWorker = new BullWorker('report-analysis', async (job) => {
-      await processJob(job.name, job.data);
-    }, { connection });
-
-    console.log('[Queue] BullMQ background queue initialized successfully.');
+    console.warn('[Queue] Redis setup crashed. Falling back to MemoryQueue.');
   }
-} catch (err) {
-  useRedis = false;
-  console.warn('[Queue] Redis setup crashed. Falling back to MemoryQueue.');
 }
 
 /**
@@ -87,11 +157,15 @@ async function processJob(name: string, data: any): Promise<void> {
         issue.type,
         issue.title,
         issue.message,
-        issue.location
+        issue.location as any
       );
 
       // 2. Update issue in Database
-      issue.aiSuggestion = suggestion;
+      issue.aiSuggestion = {
+        explanation: suggestion.explanation,
+        fixCode: suggestion.fixCode || '',
+        referenceUrl: suggestion.referenceUrl || ''
+      };
       await issue.save();
 
       // 3. Push real-time alert via Socket.IO

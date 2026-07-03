@@ -85,3 +85,63 @@ For local files, point your integration script to the local backend address:
 ```
 
 Open your local project file in any browser tab. The SDK will run audits and immediately update the live telemetry feed in your dashboard!
+
+---
+
+## 4. Source Map Registry (Phase 4)
+
+To translate minified production stack traces back to your original source files, upload your `.map` files during deployment:
+
+```bash
+curl -X POST "http://localhost:5000/api/projects/demo_proj_1/source-maps" \
+  -H "x-api-key: your_sdk_api_key_here" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "fileName": "analyzer.min.js",
+    "rawSourceMap": "..."
+  }'
+```
+
+When telemetry is ingested, the backend decodes the Base64 VLQ source map, resolves the original source coordinates, and enriches the issue payload.
+
+---
+
+## 5. IDE Integration (LSP Daemon & VS Code Extension)
+
+Bring performance regression warnings, runtime exceptions, and accessibility alerts directly to your code editor with **AI Quick-Fix** support.
+
+### How to Compile and Run:
+
+#### Step 1: Compile the LSP Server Daemon
+```bash
+cd lsp
+npm install
+npm run build     # Compiles TS source files to lsp/dist/server.js
+```
+
+#### Step 2: Compile the VS Code Extension
+```bash
+cd vscode-extension
+npm install
+npm run compile   # Compiles vscode-extension/dist/extension.js
+```
+
+#### Step 3: Run the Extension in VS Code
+1. Open the `/home/dz/Desktop/JS Code Analyzer/vscode-extension` directory in VS Code.
+2. Press `F5` (or click Run -> Start Debugging) to launch the **Extension Development Host**.
+3. In the new window, open your workspace (e.g. `/home/dz/Desktop/JS Code Analyzer/test-app/`).
+4. Configure setting attributes `jsCodeAnalyzer.projectId` and `jsCodeAnalyzer.backendUrl` inside settings.
+
+### Real-Time Local Dev-Server Hook (Phase 7)
+In `development` mode, the SDK reports events directly to the local extension port `http://localhost:3003/local-diagnostic`. The LSP daemon catches the payload and instantly draws visual warning squiggles in the editor without needing any database sync!
+
+---
+
+## 6. Security & Reliability Safeguards
+
+- **Hashed API Keys**: All SDK keys are stored in the database using SHA-256 hashing. Compromising the database does not expose keys, which are only visible to the user at generation.
+- **SSRF Webhook Protection**: Dynamic DNS lookup verifies webhook URLs to ensure they do not resolve to private or loopback ranges (`127.0.0.0/8`, `10.0.0.0/8`, etc.), blocking Server-Side Request Forgery attacks.
+- **Dynamic CORS Isolation**: CORS permits wildcard `*` access exclusively for client-side SDK paths (`/sdk`), while MERN API/Socket routes are restricted to the configured `DASHBOARD_URL` in production.
+- **Telemetry Queue Resiliency**: The SDK keeps a local cache of events. If a network interruption occurs during transmission, the memory queue is automatically restored to prevent telemetry data loss.
+- **BullMQ Connection Recovery**: The backend queue cleanly switches to the local `MemoryQueue` fallback and shuts down inactive connections to prevent background retries when Redis crashes.
+

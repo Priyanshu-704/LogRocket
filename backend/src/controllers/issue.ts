@@ -83,3 +83,30 @@ export async function resolveIssue(req: AuthenticatedRequest, res: Response, nex
     next(err);
   }
 }
+
+/**
+ * Retrieves specific details of a single issue by its ID.
+ */
+export async function getIssueDetail(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const { issueId } = req.params;
+    const userId = req.user?.userId;
+
+    const issue = await Issue.findById(issueId);
+    if (!issue) {
+      return res.status(404).json({ status: 'fail', message: 'Issue not found.' });
+    }
+
+    const project = await Project.findOne({ _id: issue.projectId, ownerId: userId });
+    if (!project) {
+      return res.status(404).json({ status: 'fail', message: 'Access denied.' });
+    }
+
+    res.status(200).json({
+      status: 'success',
+      data: issue
+    });
+  } catch (err) {
+    next(err);
+  }
+}

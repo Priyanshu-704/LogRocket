@@ -1,0 +1,20 @@
+{
+  "name": "@js-code-analyzer/lsp-daemon",
+  "version": "1.0.0",
+  "description": "Background Language Server Protocol (LSP) daemon syncing runtime telemetry diagnostics to local editors.",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "watch": "tsc -w"
+  },
+  "dependencies": {
+    "axios": "^1.6.8",
+    "vscode-languageserver": "^9.0.1",
+    "vscode-languageserver-textdocument": "^1.0.11"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.24",
+    "typescript": "^5.3.3"
+  }
+}

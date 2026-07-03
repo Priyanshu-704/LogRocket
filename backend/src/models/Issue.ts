@@ -12,7 +12,13 @@ const OccurrenceSampleSchema = new Schema({
     column: Number,
     selector: String,
     outerHTML: String,
-    fileName: String
+    fileName: String,
+    originalLocation: {
+      line: Number,
+      column: Number,
+      fileName: String,
+      sourceContent: String
+    }
   },
   metadata: Schema.Types.Mixed
 }, { _id: false });
@@ -74,7 +80,13 @@ const IssueSchema = new Schema({
     column: Number,
     selector: String,
     outerHTML: String,
-    fileName: String
+    fileName: String,
+    originalLocation: {
+      line: Number,
+      column: Number,
+      fileName: String,
+      sourceContent: String
+    }
   },
   metadata: Schema.Types.Mixed,
   aiSuggestion: {

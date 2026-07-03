@@ -1,28 +1,22 @@
-export type IssueCategory =
-  | 'html'
-  | 'css'
-  | 'javascript'
-  | 'dom'
-  | 'performance'
-  | 'accessibility'
-  | 'seo'
-  | 'security'
-  | 'code-quality'
-  | 'dx';
-
 export type Severity = 'low' | 'medium' | 'high' | 'critical';
 
 export interface IssueLocation {
   line?: number;
   column?: number;
+  fileName?: string;
   selector?: string;
   outerHTML?: string;
-  fileName?: string;
+}
+
+export interface AISuggestion {
+  explanation: string;
+  fixCode: string;
+  referenceUrl: string;
 }
 
 export interface Issue {
-  id: string; // Deterministic fingerprint
-  category: IssueCategory;
+  id: string;
+  category: string;
   type: string;
   severity: Severity;
   title: string;
@@ -30,29 +24,7 @@ export interface Issue {
   timestamp: number;
   location?: IssueLocation;
   metadata?: Record<string, any>;
-}
-
-export interface RuleConfig {
-  enabled: boolean;
-  severity?: Severity;
-}
-
-export interface AnalyzerConfig {
-  projectId: string;
-  endpoint?: string;
-  environment?: 'development' | 'staging' | 'production';
-  debug?: boolean;
-  rules?: Record<string, boolean | RuleConfig>;
-  collectors?: {
-    dom?: boolean;
-    css?: boolean;
-    errors?: boolean;
-    network?: boolean;
-    performance?: boolean;
-    'static-code'?: boolean;
-    security?: boolean;
-  };
-  sampleRate?: number;
+  aiSuggestion?: AISuggestion;
 }
 
 export interface TelemetryEvent {
@@ -70,11 +42,30 @@ export interface Report {
   userAgent: string;
   issues: Issue[];
   events: TelemetryEvent[];
-  metrics: Record<string, number | string>;
+  metrics: Record<string, any>;
+}
+
+export interface AnalyzerConfig {
+  projectId: string;
+  apiKey?: string;
+  endpoint?: string;
+  environment?: 'development' | 'production' | 'staging';
+  debug?: boolean;
+  sampleRate?: number;
+  collectors?: {
+    dom?: boolean;
+    css?: boolean;
+    errors?: boolean;
+    network?: boolean;
+    performance?: boolean;
+    'static-code'?: boolean;
+    security?: boolean;
+  };
+  rules?: Record<string, boolean | { enabled?: boolean; severity?: Severity }>;
 }
 
 export interface Plugin {
   name: string;
-  analyze: (analyzer: any) => void;
-  destroy?: () => void;
+  analyze(analyzer: any): void;
+  destroy?(): void;
 }

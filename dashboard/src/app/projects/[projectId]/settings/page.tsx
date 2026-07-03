@@ -53,8 +53,16 @@ export default function ProjectSettings() {
         }
       }
 
-      // Mock display placeholder for API Key (in a full dashboard, you query active keys)
-      setApiKey(`key_project_token_resolved_for_${projectId.substring(0, 8)}`);
+      // Fetch active API Key (masked)
+      const keysResp = await fetch(`${apiBaseUrl}/api/projects/${projectId}/api-keys`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const keysData = await keysResp.json();
+      if (keysResp.ok && keysData.status === 'success' && keysData.data.apiKeys?.length > 0) {
+        setApiKey(keysData.data.apiKeys[0].maskedKey || keysData.data.apiKeys[0].key);
+      } else {
+        setApiKey('No active API key found. Please regenerate.');
+      }
     } catch (err) {
       console.error('Failed to load project configuration details', err);
     } finally {

@@ -82,6 +82,9 @@ export async function generateApiKey(req: AuthenticatedRequest, res: Response, n
       return res.status(404).json({ status: 'fail', message: 'Project not found or access denied.' });
     }
 
+    // Revoke/Deactivate old active API keys for this project
+    await ApiKey.updateMany({ projectId: project._id, isActive: true }, { isActive: false });
+
     const rawKey = `key_${crypto.randomBytes(24).toString('hex')}`;
     const apiKey = await ApiKey.create({
       key: rawKey,
@@ -132,6 +135,30 @@ export async function updateProjectSettings(req: AuthenticatedRequest, res: Resp
     res.status(200).json({
       status: 'success',
       data: { project }
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Retrieves active API keys for a project (masked for security).
+ */
+export async function getProjectApiKeys(req: AuthenticatedRequest, res: Response, next: NextFunction) {
+  try {
+    const { projectId } = req.params;
+    const userId = req.user?.userId;
+
+    const project = await Project.findOne({ _id: projectId, ownerId: userId });
+    if (!project) {
+      return res.status(404).json({ status: 'fail', message: 'Project not found or access denied.' });
+    }
+
+    const apiKeys = await ApiKey.find({ projectId: project._id, isActive: true });
+
+    res.status(200).json({
+      status: 'success',
+      data: { apiKeys }
     });
   } catch (err) {
     next(err);

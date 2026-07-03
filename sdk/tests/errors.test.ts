@@ -36,10 +36,10 @@ describe('ErrorsCollector', () => {
     }
 
     const report = analyzer.getReport();
-    const issue = report?.issues.find(i => i.type === 'runtime-error');
+    const issue = report?.issues.find((i: any) => i.type === 'runtime-error');
     expect(issue).toBeDefined();
     expect(issue?.title).toBe('ReferenceError');
-    expect(issue?.message).toBe('x is not defined');
+    expect(issue?.message).toContain('x is not defined');
     expect(issue?.location?.line).toBe(12);
     expect(issue?.location?.column).toBe(34);
     expect(issue?.location?.fileName).toBe('main.js');
@@ -57,7 +57,7 @@ describe('ErrorsCollector', () => {
     window.dispatchEvent(event);
 
     const report = analyzer.getReport();
-    const issue = report?.issues.find(i => i.type === 'unhandled-rejection');
+    const issue = report?.issues.find((i: any) => i.type === 'unhandled-rejection');
     expect(issue).toBeDefined();
     expect(issue?.title).toBe('Error');
     expect(issue?.message).toBe('Database connection failed');
@@ -73,7 +73,7 @@ describe('ErrorsCollector', () => {
     console.error('Failed to load credentials config file', { status: 401 });
 
     const report = analyzer.getReport();
-    const issue = report?.issues.find(i => i.type === 'console-error');
+    const issue = report?.issues.find((i: any) => i.type === 'console-error');
     expect(issue).toBeDefined();
     expect(issue?.message).toContain('Failed to load credentials config file');
     

@@ -11,7 +11,9 @@ let io: Server | null = null;
 export function initSocket(server: HttpServer): Server {
   io = new Server(server, {
     cors: {
-      origin: '*',
+      origin: process.env.NODE_ENV === 'production' && process.env.DASHBOARD_URL
+        ? process.env.DASHBOARD_URL.split(',')
+        : '*',
       methods: ['GET', 'POST']
     }
   });

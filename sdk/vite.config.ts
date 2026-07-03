@@ -1,11 +1,10 @@
 /// <reference types="vitest" />
 import { defineConfig } from 'vitest/config';
-import { resolve } from 'path';
 
 export default defineConfig({
   build: {
     lib: {
-      entry: resolve(__dirname, 'src/index.ts'),
+      entry: 'src/index.ts',
       name: 'Analyzer',
       fileName: (format) => {
         if (format === 'umd') return 'analyzer.min.js';
@@ -20,5 +19,6 @@ export default defineConfig({
   test: {
     environment: 'happy-dom',
     globals: true,
+    setupFiles: ['tests/setup.ts'],
   },
 });

@@ -1,0 +1,58 @@
+{
+  "name": "js-code-analyzer-vscode",
+  "displayName": "JS Code Analyzer Client",
+  "description": "Brings real-time telemetry diagnostics, accessibility alerts, and performance warnings from the JS Code Analyzer platform directly into your editor.",
+  "version": "1.0.0",
+  "publisher": "antigravity",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Linters",
+    "Programming Languages"
+  ],
+  "activationEvents": [
+    "onLanguage:javascript",
+    "onLanguage:typescript",
+    "onLanguage:javascriptreact",
+    "onLanguage:typescriptreact",
+    "onLanguage:html"
+  ],
+  "main": "./dist/extension.js",
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -b",
+    "watch": "tsc -b -w"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.24",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.3.3"
+  },
+  "contributes": {
+    "configuration": {
+      "type": "object",
+      "title": "JS Code Analyzer Settings",
+      "properties": {
+        "jsCodeAnalyzer.projectId": {
+          "type": "string",
+          "default": "demo_proj_1",
+          "description": "The target Project ID generated in your developer dashboard."
+        },
+        "jsCodeAnalyzer.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Your developer SDK validation API key."
+        },
+        "jsCodeAnalyzer.backendUrl": {
+          "type": "string",
+          "default": "http://localhost:5000",
+          "description": "The URL of the JS Code Analyzer API backend server."
+        }
+      }
+    }
+  }
+}
