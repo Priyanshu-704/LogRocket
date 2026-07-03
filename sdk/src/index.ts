@@ -17,7 +17,7 @@ if (typeof window !== 'undefined') {
     if (currentScript) {
       const projectId = currentScript.getAttribute('data-project-id');
       if (projectId) {
-        const environment = currentScript.getAttribute('data-env') || 'production';
+        const environment = (currentScript.getAttribute('data-env') || 'production') as any;
         const endpoint = currentScript.getAttribute('data-endpoint') || 'http://localhost:5000/sdk/report';
         const debug = currentScript.getAttribute('data-debug') === 'true' || environment === 'development';
         
