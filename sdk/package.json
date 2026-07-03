@@ -1,0 +1,35 @@
+{
+  "name": "@js-code-analyzer/sdk",
+  "version": "1.0.0",
+  "description": "Real-time client-side JavaScript CDN SDK for code analysis, performance monitoring, accessibility auditing, and error tracking.",
+  "main": "dist/analyzer.umd.js",
+  "module": "dist/analyzer.es.js",
+  "types": "dist/types/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "keywords": [
+    "analyzer",
+    "sdk",
+    "cdn",
+    "lighthouse",
+    "eslint",
+    "performance",
+    "accessibility",
+    "error-tracking"
+  ],
+  "author": "Antigravity",
+  "license": "MIT",
+  "devDependencies": {
+    "happy-dom": "^14.12.0",
+    "typescript": "^5.4.5",
+    "vite": "^5.2.11",
+    "vitest": "^1.6.0"
+  }
+}
