@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JS Code Analyzer Test App</title>
+  
+  <!-- CSS Styling for modern, interactive dashboard elements -->
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #0d1117;
+      color: #c9d1d9;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 600px;
+      background: #161b22;
+      border: 1px border #30363d;
+      border-radius: 12px;
+      padding: 30px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+      text-align: center;
+    }
+    h1 {
+      color: #58a6ff;
+      margin-top: 0;
+    }
+    p {
+      color: #8b949e;
+      line-height: 1.6;
+    }
+    .btn-group {
+      margin-top: 25px;
+      display: flex;
+      gap: 15px;
+      justify-content: center;
+    }
+    button {
+      background-color: #21262d;
+      color: #c9d1d9;
+      border: 1px solid #30363d;
+      padding: 12px 24px;
+      font-size: 15px;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    button:hover {
+      background-color: #30363d;
+      border-color: #8b949e;
+    }
+    button.critical {
+      background-color: rgba(248, 81, 73, 0.15);
+      color: #ff7b72;
+      border-color: rgba(248, 81, 73, 0.4);
+    }
+    button.critical:hover {
+      background-color: rgba(248, 81, 73, 0.3);
+      border-color: #ff7b72;
+    }
+    .status-box {
+      margin-top: 20px;
+      padding: 10px;
+      border-radius: 6px;
+      font-size: 14px;
+      background: #0d1117;
+      border: 1px solid #21262d;
+    }
+  </style>
+
+  <!-- Load JS Code Analyzer SDK locally -->
+  <!-- Note: We are passing data-env="development" to transmit to local extension port 3003 -->
+  <script 
+    src="http://localhost:5000/sdk/analyzer.js" 
+    data-project-id="663d12f3fcf12cd7994390aa" 
+    data-api-key="key_demo_api_key_123456"
+    data-env="development"
+    data-debug="true">
+  </script>
+</head>
+<body>
+
+  <div class="container">
+    <h1>JS Code Analyzer SDK Test Page</h1>
+    <p>
+      This simple application will load the frontend analyzer SDK, scan the page for DOM/Accessibility issues, and let you trigger runtime Javascript errors.
+    </p>
+
+    <!-- Intentionally added accessibility issue: missing alt attribute -->
+    <div style="margin: 20px 0;">
+      <img src="https://images.unsplash.com/photo-1618401471353-b98aedd07871?w=150" style="border-radius: 8px;">
+      <div style="font-size: 12px; color: #8b949e; margin-top: 5px;">(Accessibility Issue: This image has no alt attribute)</div>
+    </div>
+
+    <!-- Intentionally added duplicate ID check to violate DOM standards -->
+    <div id="duplicate-element-id" style="display: none;">Duplicate 1</div>
+    <div id="duplicate-element-id" style="display: none;">Duplicate 2</div>
+
+    <div class="btn-group">
+      <button class="critical" id="btn-trigger-error">Trigger Runtime Error</button>
+      <button id="btn-trigger-promise">Trigger Promise Rejection</button>
+    </div>
+
+    <div class="status-box" id="status-display">
+      SDK Status: Initializing...
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
