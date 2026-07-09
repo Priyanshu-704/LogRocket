@@ -42,7 +42,7 @@ export class NetworkCollector extends BaseCollector {
   private setupFetchInterceptor(): void {
     if (typeof window === 'undefined' || !window.fetch) return;
 
-    this.originalFetch = window.fetch;
+    this.originalFetch = window.fetch.bind(window);
     const self = this;
 
     window.fetch = async function (input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
@@ -59,7 +59,7 @@ export class NetworkCollector extends BaseCollector {
       const isSDKEndpoint = self.analyzer.config.endpoint && url.includes(self.analyzer.config.endpoint);
 
       try {
-        const response = await self.originalFetch!(input, init);
+        const response = await self.originalFetch!.call(window, input, init);
         const endTime = performance.now();
         const duration = endTime - startTime;
 
